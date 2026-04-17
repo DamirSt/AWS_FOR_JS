@@ -1,18 +1,26 @@
 <mat-card>
   <div mat-card-image class="img-container">
     <div class="img-container__inner">
-      <img src="https://source.unsplash.com/random?sig={{ index() }}" alt="" />
+      <img [src]="product().imageUrl" [alt]="product().name" />
     </div>
   </div>
 
   <mat-card-header>
     <mat-card-title>
-      {{ product().title }}
+      {{ product().name }}
+      <span class="artist">{{ product().artist }}</span>
     </mat-card-title>
+    <mat-card-subtitle>
+      {{ product().category }} • {{ product().genre }} • {{ product().year }}
+    </mat-card-subtitle>
   </mat-card-header>
 
   <mat-card-content>
-    <p>{{ product().price | number: "1.2-2" | currency }}</p>
+    <p class="description">{{ product().description }}</p>
+    <p class="price">{{ product().price | currency }}</p>
+    @if (!product().inStock) {
+      <p class="out-of-stock">Out of Stock</p>
+    }
   </mat-card-content>
 
   <mat-card-actions>
@@ -22,7 +30,7 @@
         #cartBtn
         (click)="add()"
         color="accent"
-        matTooltip="Add {{ product().title }} to cart"
+        matTooltip="Add {{ product().name }} to cart"
         mat-icon-button
       >
         <mat-icon>shopping_cart</mat-icon>
@@ -32,9 +40,9 @@
         #controls="countControls"
         (increment)="add()"
         (decrement)="remove()"
-        [productName]="product().title"
+        [productName]="product().name"
         [count]="countInCart()"
-        [available]="product().count"
+        [available]="product().inStock ? 999 : 0"
       ></app-cart-count-controls>
     }
   </mat-card-actions>

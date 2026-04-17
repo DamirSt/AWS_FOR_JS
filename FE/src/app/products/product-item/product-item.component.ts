@@ -22,6 +22,7 @@ import {
   MatCardContent,
   MatCardHeader,
   MatCardImage,
+  MatCardSubtitle,
   MatCardTitle,
 } from '@angular/material/card';
 
@@ -35,6 +36,7 @@ import {
     MatCardImage,
     MatCardHeader,
     MatCardTitle,
+    MatCardSubtitle,
     MatCardContent,
     MatCardActions,
     MatIconButton,

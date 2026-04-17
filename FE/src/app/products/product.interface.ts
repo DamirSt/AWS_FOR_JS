@@ -1,10 +1,14 @@
 export interface Product {
-  /** Available count */
-  count: number;
-  description: string;
   id: string;
+  name: string;
+  artist: string;
+  description: string;
   price: number;
-  title: string;
+  category: string;
+  genre: string;
+  year: number;
+  inStock: boolean;
+  imageUrl: string;
 }
 
 export interface ProductCheckout extends Product {
