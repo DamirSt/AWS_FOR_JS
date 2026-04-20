@@ -113,8 +113,8 @@ export async function main(event: any) {
 
 export async function getProductById(event: any) {
   try {
-    // Extract productId from path parameters
-    const productId = event.pathParameters?.productId;
+    // Extract productId from request template
+    const productId = event.productId;
     
     if (!productId) {
       throw new Error('Product ID is required');

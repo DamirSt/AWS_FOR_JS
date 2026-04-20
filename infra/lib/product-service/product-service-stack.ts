@@ -95,6 +95,11 @@ export class ProductServiceStack extends cdk.Stack {
 
     // Create Lambda integration for getProductById
     const getProductByIdIntegration = new apigateway.LambdaIntegration(getProductByIdFunction, {
+      requestTemplates: {
+        "application/json": `{
+          "productId": "$input.params('productId')"
+        }`,
+      },
       integrationResponses: [
         {
           statusCode: '200',
