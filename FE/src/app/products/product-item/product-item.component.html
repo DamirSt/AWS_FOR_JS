@@ -42,7 +42,7 @@
         (decrement)="remove()"
         [productName]="product().name"
         [count]="countInCart()"
-        [available]="product().inStock ? 999 : 0"
+        [available]="product().count"
       ></app-cart-count-controls>
     }
   </mat-card-actions>
