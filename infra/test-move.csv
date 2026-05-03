@@ -1,0 +1,3 @@
+title,description,price,artist,category,genre,year,imageUrl
+"Move Test Album 1","Test album for file move functionality",19.99,"Move Artist 1","Electronic","Synthwave",2024,"https://example.com/move1.jpg"
+"Move Test Album 2","Another test album for file move functionality",24.99,"Move Artist 2","Hip Hop","Trap",2023,"https://example.com/move2.jpg"

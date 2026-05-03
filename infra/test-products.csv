@@ -1,0 +1,4 @@
+title,description,price,artist,category,genre,year,imageUrl
+"Test Album 1","First test album for import",29.99,"Test Artist 1","Rock","Classic Rock",2021,"https://example.com/album1.jpg"
+"Test Album 2","Second test album for import",39.99,"Test Artist 2","Pop","Pop Rock",2022,"https://example.com/album2.jpg"
+"Test Album 3","Third test album for import",49.99,"Test Artist 3","Jazz","Smooth Jazz",2023,"https://example.com/album3.jpg"
