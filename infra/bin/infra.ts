@@ -5,6 +5,8 @@ import { DeployWebAppStack } from '../lib/deploy-web-app-stack';
 import { HelloLambdaStack } from '../lib/hello-lambda/hello-lambda-stack';
 import { ProductServiceStack } from '../lib/product-service/product-service-stack';
 import { TodoStack } from '../lib/todo/TodoStack';
+import { HelloS3Stack } from '../lib/hello-s3/hello-s3-stack';
+import { ImportServiceStack } from '../lib/import-service/import-service-stack';
 
 const app = new cdk.App();
 new DeployWebAppStack(app, 'DeployWebAppStack', {
@@ -29,3 +31,8 @@ new HelloLambdaStack(app, 'HelloLambdaStack', {});
 new ProductServiceStack(app, 'ProductServiceStack', {});
 
 new TodoStack(app, 'TodoStack');
+
+new HelloS3Stack(app, 'HelloS3Stack', {});
+
+new ImportServiceStack(app, 'ImportServiceStack', {});
+

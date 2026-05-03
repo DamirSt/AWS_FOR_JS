@@ -1,0 +1,16 @@
+{
+  "name": "import-service",
+  "version": "1.0.0",
+  "description": "Import service for product CSV files",
+  "main": "handler.js",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0",
+    "uuid": "^9.0.0",
+    "csv-parser": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
