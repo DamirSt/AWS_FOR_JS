@@ -4,6 +4,7 @@ import * as cdk from 'aws-cdk-lib';
 import { DeployWebAppStack } from '../lib/deploy-web-app-stack';
 import { HelloLambdaStack } from '../lib/hello-lambda/hello-lambda-stack';
 import { ProductServiceStack } from '../lib/product-service/product-service-stack';
+import { TodoStack } from '../lib/todo/TodoStack';
 
 const app = new cdk.App();
 new DeployWebAppStack(app, 'DeployWebAppStack', {
@@ -26,3 +27,5 @@ new DeployWebAppStack(app, 'DeployWebAppStack', {
 new HelloLambdaStack(app, 'HelloLambdaStack', {});
 
 new ProductServiceStack(app, 'ProductServiceStack', {});
+
+new TodoStack(app, 'TodoStack');

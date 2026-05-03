@@ -1,0 +1,149 @@
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { v4 as uuidv4 } from 'uuid';
+
+// DynamoDB client
+const client = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(client);
+
+// Test data for products
+const testProducts = [
+  {
+    id: uuidv4(),
+    title: 'The Dark Side of the Moon',
+    description: 'Classic progressive rock masterpiece from 1973',
+    price: 3499, // Price in cents
+    artist: 'Pink Floyd',
+    category: 'Classic Rock',
+    genre: 'Progressive Rock',
+    year: 1973,
+    imageUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/a/ab/The_Dark_Side_of_the_Moon_cover.svg/1280px-The_Dark_Side_of_the_Moon_cover.svg.png'
+  },
+  {
+    id: uuidv4(),
+    title: 'Nevermind',
+    description: 'Groundbreaking alternative rock album that defined the 90s',
+    price: 2999,
+    artist: 'Nirvana',
+    category: 'Alternative Rock',
+    genre: 'Grunge',
+    year: 1991,
+    imageUrl: 'https://www.nirvana.com/wp-content/uploads/sites/2438/2023/10/Nevermind-compressed.jpg'
+  },
+  {
+    id: uuidv4(),
+    title: 'Led Zeppelin IV',
+    description: 'Iconic hard rock album featuring "Stairway to Heaven"',
+    price: 3799,
+    artist: 'Led Zeppelin',
+    category: 'Classic Rock',
+    genre: 'Hard Rock',
+    year: 1971,
+    imageUrl: 'https://m.media-amazon.com/images/I/81x364UAGAL._AC_SX679_.jpg'
+  },
+  {
+    id: uuidv4(),
+    title: 'OK Computer',
+    description: 'Influential alternative rock album exploring modern alienation',
+    price: 3299,
+    artist: 'Radiohead',
+    category: 'Alternative Rock',
+    genre: 'Art Rock',
+    year: 1997,
+    imageUrl: 'https://cdn-images.dzcdn.net/images/cover/05a186e0a859a36f9cd51cdae2158fe1/0x1900-000000-80-0-0.jpg'
+  },
+  {
+    id: uuidv4(),
+    title: 'Abbey Road',
+    description: 'Final studio album from the Fab Four',
+    price: 3999,
+    artist: 'The Beatles',
+    category: 'Classic Rock',
+    genre: 'Rock',
+    year: 1969,
+    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/a/a4/The_Beatles_Abbey_Road_album_cover.jpg'
+  },
+  {
+    id: uuidv4(),
+    title: 'The Velvet Underground & Nico',
+    description: 'Influential art rock album with Andy Warhol artwork',
+    price: 3199,
+    artist: 'The Velvet Underground',
+    category: 'Alternative Rock',
+    genre: 'Art Rock',
+    year: 1967,
+    imageUrl: 'https://m.media-amazon.com/images/I/61wJx-+0I2L._UF1000,1000_QL80_.jpg'
+  },
+  {
+    id: uuidv4(),
+    title: 'Rumours',
+    description: 'Best-selling album with classic rock anthems',
+    price: 3599,
+    artist: 'Fleetwood Mac',
+    category: 'Classic Rock',
+    genre: 'Soft Rock',
+    year: 1977,
+    imageUrl: 'https://m.media-amazon.com/images/I/71BekDJBb3L._UF1000,1000_QL80_.jpg'
+  },
+  {
+    id: uuidv4(),
+    title: 'Is This It',
+    description: 'Revolutionary garage rock revival album',
+    price: 2899,
+    artist: 'The Strokes',
+    category: 'Alternative Rock',
+    genre: 'Garage Rock',
+    year: 2001,
+    imageUrl: 'https://static.wixstatic.com/media/82fcff_03fe4045dcd04b08bebf07b877dc0cd5~mv2.jpg/v1/fill/w_900,h_900,al_c,q_85/82fcff_03fe4045dcd04b08bebf07b877dc0cd5~mv2.jpg'
+  }
+];
+
+// Test data for stock
+const testStock = testProducts.map((product) => ({
+  product_id: product.id,
+  count: Math.floor(Math.random() * 10) + 1 // Random count between 1-10
+}));
+
+async function populateTables() {
+  console.log('Populating DynamoDB tables with test data...');
+
+  try {
+    // Populate products table
+    console.log('Adding products...');
+    for (const product of testProducts) {
+      await docClient.send(new PutCommand({
+        TableName: 'products',
+        Item: product
+      }));
+      console.log(`Added product: ${product.title}`);
+    }
+
+    // Populate stock table
+    console.log('Adding stock...');
+    for (const stock of testStock) {
+      await docClient.send(new PutCommand({
+        TableName: 'stock',
+        Item: stock
+      }));
+      console.log(`Added stock for product: ${stock.product_id}, count: ${stock.count}`);
+    }
+
+    console.log('SUCCESS: Database populated with test data!');
+    console.log(`Added ${testProducts.length} products and ${testStock.length} stock entries`);
+
+  } catch (error) {
+    console.error('Error populating tables:', error);
+    throw error;
+  }
+}
+
+// Run the population
+if (require.main === module) {
+  populateTables().catch(error => {
+    console.error('FAILED: Could not populate database:', error);
+    process.exit(1);
+  });
+}
+
+export { populateTables, testProducts, testStock };

@@ -1,6 +1,7 @@
 // Filename: product-service-stack.ts
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as cdk from 'aws-cdk-lib';
 import * as path from 'path';
 import { Construct } from 'constructs';
@@ -8,6 +9,27 @@ import { Construct } from 'constructs';
 export class ProductServiceStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // Create DynamoDB tables (like TodoStack)
+    const productsTable = new dynamodb.Table(this, 'ProductsTable', {
+      tableName: 'products',
+      partitionKey: {
+        name: 'id',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY // For development - remove in production
+    });
+
+    const stockTable = new dynamodb.Table(this, 'StockTable', {
+      tableName: 'stock',
+      partitionKey: {
+        name: 'product_id',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY // For development - remove in production
+    });
 
     // Create the getProductsList Lambda function
     const getProductsListFunction = new lambda.Function(this, 'getProductsList', {
@@ -17,7 +39,9 @@ export class ProductServiceStack extends cdk.Stack {
       handler: 'handler.main',
       code: lambda.Code.fromAsset(path.join(__dirname, './')),
       environment: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        PRODUCTS_TABLE: productsTable.tableName,
+        STOCK_TABLE: stockTable.tableName
       }
     });
 
@@ -29,9 +53,33 @@ export class ProductServiceStack extends cdk.Stack {
       handler: 'handler.getProductById',
       code: lambda.Code.fromAsset(path.join(__dirname, './')),
       environment: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        PRODUCTS_TABLE: productsTable.tableName,
+        STOCK_TABLE: stockTable.tableName
       }
     });
+
+    // Create the createProduct Lambda function
+    const createProductFunction = new lambda.Function(this, 'createProduct', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 1024,
+      timeout: cdk.Duration.seconds(10),
+      handler: 'handler.createProduct',
+      code: lambda.Code.fromAsset(path.join(__dirname, './')),
+      environment: {
+        NODE_ENV: 'production',
+        PRODUCTS_TABLE: productsTable.tableName,
+        STOCK_TABLE: stockTable.tableName
+      }
+    });
+
+    // Grant Lambda functions permissions to access DynamoDB tables
+    productsTable.grantReadWriteData(getProductsListFunction);
+    stockTable.grantReadWriteData(getProductsListFunction);
+    productsTable.grantReadWriteData(getProductByIdFunction);
+    stockTable.grantReadWriteData(getProductByIdFunction);
+    productsTable.grantReadWriteData(createProductFunction);
+    stockTable.grantReadWriteData(createProductFunction);
 
     // Create API Gateway for Product Service
     const productApi = new apigateway.RestApi(this, "product-api", {
@@ -83,10 +131,87 @@ export class ProductServiceStack extends cdk.Stack {
       ]
     });
 
+    // Create Lambda integration for createProduct
+    const createProductIntegration = new apigateway.LambdaIntegration(createProductFunction, {
+      integrationResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+            'method.response.header.Access-Control-Allow-Methods': "'GET,POST,OPTIONS'"
+          }
+        },
+        {
+          statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'"
+          }
+        },
+        {
+          statusCode: '409',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'"
+          }
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'"
+          }
+        },
+        {
+          statusCode: '503',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'"
+          }
+        }
+      ],
+      proxy: false,
+    });
+
+    // Add POST method to /products endpoint
+    productsResource.addMethod('POST', createProductIntegration, {
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
+            'method.response.header.Access-Control-Allow-Methods': true
+          }
+        },
+        {
+          statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true
+          }
+        },
+        {
+          statusCode: '409',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true
+          }
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true
+          }
+        },
+        {
+          statusCode: '503',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true
+          }
+        }
+      ]
+    });
+
     // Add CORS preflight for /products
     productsResource.addCorsPreflight({
       allowOrigins: apigateway.Cors.ALL_ORIGINS,
-      allowMethods: ['GET', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token']
     });
 

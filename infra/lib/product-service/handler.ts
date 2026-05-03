@@ -1,136 +1,405 @@
-// Mock product data - Vinyl Records
-const mockProducts = [
-  {
-    id: '1',
-    name: 'The Dark Side of the Moon',
-    artist: 'Pink Floyd',
-    description: 'Classic progressive rock masterpiece from 1973',
-    price: 34.99,
-    category: 'Classic Rock',
-    genre: 'Progressive Rock',
-    year: 1973,
-    inStock: true,
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/a/ab/The_Dark_Side_of_the_Moon_cover.svg/1280px-The_Dark_Side_of_the_Moon_cover.svg.png'
-  },
-  {
-    id: '2',
-    name: 'Nevermind',
-    artist: 'Nirvana',
-    description: 'Groundbreaking alternative rock album that defined the 90s',
-    price: 29.99,
-    category: 'Alternative Rock',
-    genre: 'Grunge',
-    year: 1991,
-    inStock: true,
-    imageUrl: 'https://www.nirvana.com/wp-content/uploads/sites/2438/2023/10/Nevermind-compressed.jpg'
-  },
-  {
-    id: '3',
-    name: 'Led Zeppelin IV',
-    artist: 'Led Zeppelin',
-    description: 'Iconic hard rock album featuring "Stairway to Heaven"',
-    price: 37.99,
-    category: 'Classic Rock',
-    genre: 'Hard Rock',
-    year: 1971,
-    inStock: false,
-    imageUrl: 'https://m.media-amazon.com/images/I/81x364UAGAL._AC_SX679_.jpg'
-  },
-  {
-    id: '4',
-    name: 'OK Computer',
-    artist: 'Radiohead',
-    description: 'Influential alternative rock album exploring modern alienation',
-    price: 32.99,
-    category: 'Alternative Rock',
-    genre: 'Art Rock',
-    year: 1997,
-    inStock: true,
-    imageUrl: 'https://cdn-images.dzcdn.net/images/cover/05a186e0a859a36f9cd51cdae2158fe1/0x1900-000000-80-0-0.jpg'
-  },
-  {
-    id: '5',
-    name: 'Abbey Road',
-    artist: 'The Beatles',
-    description: 'Final studio album from the Fab Four',
-    price: 39.99,
-    category: 'Classic Rock',
-    genre: 'Rock',
-    year: 1969,
-    inStock: true,
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/a/a4/The_Beatles_Abbey_Road_album_cover.jpg'
-  },
-  {
-    id: '6',
-    name: 'The Velvet Underground & Nico',
-    artist: 'The Velvet Underground',
-    description: 'Influential art rock album with Andy Warhol artwork',
-    price: 31.99,
-    category: 'Alternative Rock',
-    genre: 'Art Rock',
-    year: 1967,
-    inStock: true,
-    imageUrl: 'https://m.media-amazon.com/images/I/61wJx-+0I2L._UF1000,1000_QL80_.jpg'
-  },
-  {
-    id: '7',
-    name: 'Rumours',
-    artist: 'Fleetwood Mac',
-    description: 'Best-selling album with classic rock anthems',
-    price: 35.99,
-    category: 'Classic Rock',
-    genre: 'Soft Rock',
-    year: 1977,
-    inStock: false,
-    imageUrl: 'https://m.media-amazon.com/images/I/71BekDJBb3L._UF1000,1000_QL80_.jpg'
-  },
-  {
-    id: '8',
-    name: 'Is This It',
-    artist: 'The Strokes',
-    description: 'Revolutionary garage rock revival album',
-    price: 28.99,
-    category: 'Alternative Rock',
-    genre: 'Garage Rock',
-    year: 2001,
-    inStock: true,
-    imageUrl: 'https://static.wixstatic.com/media/82fcff_03fe4045dcd04b08bebf07b877dc0cd5~mv2.jpg/v1/fill/w_900,h_900,al_c,q_85/82fcff_03fe4045dcd04b08bebf07b877dc0cd5~mv2.jpg'
-  }
-];
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { 
+  ScanCommand,
+  GetCommand,
+  BatchGetCommand,
+  PutCommand,
+  TransactWriteCommand
+} from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { v4 as uuidv4 } from 'uuid';
+
+// Error response helper
+function createErrorResponse(statusCode: number, message: string, details?: any) {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+    },
+    body: JSON.stringify({
+      error: message,
+      details,
+      timestamp: new Date().toISOString()
+    })
+  };
+}
+
+// Success response helper
+function createSuccessResponse(data: any) {
+  return {
+    statusCode: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+    },
+    body: JSON.stringify(data)
+  };
+}
+
+// Structured logging helper
+function logRequest(functionName: string, event: any, additionalData?: any) {
+  const logData = {
+    timestamp: new Date().toISOString(),
+    functionName,
+    requestId: event.requestContext?.requestId || 'unknown',
+    httpMethod: event.httpMethod || 'unknown',
+    path: event.path || 'unknown',
+    userAgent: event.requestContext?.identity?.userAgent || 'unknown',
+    sourceIp: event.requestContext?.identity?.sourceIp || 'unknown',
+    ...additionalData
+  };
+  
+  console.log(JSON.stringify(logData));
+}
+
+function logError(functionName: string, error: any, event: any) {
+  const logData = {
+    timestamp: new Date().toISOString(),
+    functionName,
+    requestId: event.requestContext?.requestId || 'unknown',
+    errorType: error.constructor.name,
+    errorMessage: error.message,
+    stack: error.stack,
+    httpMethod: event.httpMethod || 'unknown',
+    path: event.path || 'unknown'
+  };
+  
+  console.error(JSON.stringify(logData));
+}
+
+// DynamoDB client
+const client = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(client);
 
 export async function main(event: any) {
+  const functionName = 'getProductsList';
+  logRequest(functionName, event);
+  
   try {
-    // Return the full array of products
-    return mockProducts;
+    const productsTable = process.env.PRODUCTS_TABLE;
+    const stockTable = process.env.STOCK_TABLE;
+    
+    if (!productsTable || !stockTable) {
+      throw new Error('DynamoDB table names not configured');
+    }
+
+    // Scan products table
+    const productsResult = await docClient.send(new ScanCommand({
+      TableName: productsTable
+    }));
+
+    // Scan stock table
+    const stockResult = await docClient.send(new ScanCommand({
+      TableName: stockTable
+    }));
+
+    const products = productsResult.Items || [];
+    const stock = stockResult.Items || [];
+
+    // Join products with stock data
+    const productsWithStock = products.map((product: any) => {
+      const stockItem = stock.find((s: any) => s.product_id === product.id);
+      return {
+        id: product.id,
+        name: product.title,
+        artist: product.artist || 'Unknown Artist',
+        description: product.description,
+        price: product.price / 100, // Convert from cents to dollars
+        category: product.category || 'Music',
+        genre: product.genre || 'Rock',
+        year: product.year || new Date().getFullYear(),
+        count: stockItem?.count || 0,
+        inStock: (stockItem?.count || 0) > 0,
+        imageUrl: product.imageUrl || 'https://example.com/default-album.jpg'
+      };
+    });
+
+    logRequest(functionName, event, { 
+      productsReturned: productsWithStock.length,
+      success: true 
+    });
+    
+    return productsWithStock;
   } catch (error) {
-    console.error('Error in getProductsList:', error);
-    return {
-      error: 'Internal server error',
-      message: 'Failed to retrieve products'
-    };
+    logError(functionName, error, event);
+    throw error;
   }
 }
 
 export async function getProductById(event: any) {
+  const functionName = 'getProductById';
+  logRequest(functionName, event);
+  
   try {
-    // Extract productId from request template
+    // Extract productId from event (passed by API Gateway integration)
     const productId = event.productId;
     
     if (!productId) {
       throw new Error('Product ID is required');
     }
 
-    // Find product by ID
-    const product = mockProducts.find(p => p.id === productId);
+    const productsTable = process.env.PRODUCTS_TABLE;
+    const stockTable = process.env.STOCK_TABLE;
+    
+    if (!productsTable || !stockTable) {
+      throw new Error('DynamoDB table names not configured');
+    }
+
+    // Get product from DynamoDB
+    const productResult = await docClient.send(new GetCommand({
+      TableName: productsTable,
+      Key: { id: productId }
+    }));
+
+    const product = productResult.Item;
     
     if (!product) {
       throw new Error(`Product with ID ${productId} not found`);
     }
 
-    // Return the found product
-    return product;
+    // Get stock for this product
+    const stockResult = await docClient.send(new GetCommand({
+      TableName: stockTable,
+      Key: { product_id: productId }
+    }));
+
+    const stockItem = stockResult.Item;
+
+    // Join product with stock data
+    const productWithStock = {
+      id: product.id,
+      name: product.title,
+      artist: product.artist || 'Unknown Artist',
+      description: product.description,
+      price: product.price / 100, // Convert from cents to dollars
+      category: product.category || 'Music',
+      genre: product.genre || 'Rock',
+      year: product.year || new Date().getFullYear(),
+      count: stockItem?.count || 0,
+      inStock: (stockItem?.count || 0) > 0,
+      imageUrl: product.imageUrl || 'https://example.com/default-album.jpg'
+    };
+
+    logRequest(functionName, event, { 
+      productId,
+      success: true 
+    });
+    
+    return productWithStock;
   } catch (error) {
-    console.error('Error in getProductById:', error);
+    logError(functionName, error, event);
     throw error;
+  }
+}
+
+export async function createProduct(event: any) {
+  const functionName = 'createProduct';
+  logRequest(functionName, event);
+  
+  try {
+    const productsTable = process.env.PRODUCTS_TABLE;
+    const stockTable = process.env.STOCK_TABLE;
+    
+    if (!productsTable || !stockTable) {
+      return createErrorResponse(500, 'Server configuration error', 'DynamoDB table names not configured');
+    }
+
+    // Parse request body if it's a string
+    let requestBody;
+    if (typeof event.body === 'string') {
+      try {
+        requestBody = JSON.parse(event.body);
+      } catch (parseError) {
+        return createErrorResponse(400, 'Invalid JSON', 'Request body contains invalid JSON');
+      }
+    } else {
+      requestBody = event;
+    }
+
+    const { title, description, price, artist, category, genre, year, imageUrl, count } = requestBody;
+    
+    // Comprehensive validation with detailed error messages
+    const validationErrors: string[] = [];
+    
+    if (!title) {
+      validationErrors.push('title is required');
+    } else if (typeof title !== 'string' || title.trim().length === 0) {
+      validationErrors.push('title must be a non-empty string');
+    } else if (title.length > 200) {
+      validationErrors.push('title must be less than 200 characters');
+    }
+    
+    if (!description) {
+      validationErrors.push('description is required');
+    } else if (typeof description !== 'string' || description.trim().length === 0) {
+      validationErrors.push('description must be a non-empty string');
+    } else if (description.length > 1000) {
+      validationErrors.push('description must be less than 1000 characters');
+    }
+    
+    if (price === undefined || price === null) {
+      validationErrors.push('price is required');
+    } else if (typeof price !== 'number') {
+      validationErrors.push('price must be a number');
+    } else if (price <= 0) {
+      validationErrors.push('price must be a positive number');
+    } else if (price > 99999.99) {
+      validationErrors.push('price must be less than 100,000');
+    }
+    
+    // Optional fields validation
+    if (artist !== undefined) {
+      if (typeof artist !== 'string') {
+        validationErrors.push('artist must be a string');
+      } else if (artist.length > 100) {
+        validationErrors.push('artist must be less than 100 characters');
+      }
+    }
+    
+    if (category !== undefined) {
+      if (typeof category !== 'string') {
+        validationErrors.push('category must be a string');
+      } else if (category.length > 50) {
+        validationErrors.push('category must be less than 50 characters');
+      }
+    }
+    
+    if (genre !== undefined) {
+      if (typeof genre !== 'string') {
+        validationErrors.push('genre must be a string');
+      } else if (genre.length > 50) {
+        validationErrors.push('genre must be less than 50 characters');
+      }
+    }
+    
+    if (year !== undefined) {
+      if (typeof year !== 'number') {
+        validationErrors.push('year must be a number');
+      } else if (year < 1900 || year > new Date().getFullYear() + 1) {
+        validationErrors.push(`year must be between 1900 and ${new Date().getFullYear() + 1}`);
+      }
+    }
+    
+    if (count !== undefined) {
+      if (typeof count !== 'number') {
+        validationErrors.push('count must be a number');
+      } else if (!Number.isInteger(count) || count < 0) {
+        validationErrors.push('count must be a non-negative integer');
+      } else if (count > 10000) {
+        validationErrors.push('count must be less than 10,000');
+      }
+    }
+    
+    if (imageUrl !== undefined) {
+      if (typeof imageUrl !== 'string') {
+        validationErrors.push('imageUrl must be a string');
+      } else if (imageUrl.length > 500) {
+        validationErrors.push('imageUrl must be less than 500 characters');
+      } else if (!imageUrl.match(/^https?:\/\/.+/)) {
+        validationErrors.push('imageUrl must be a valid URL starting with http:// or https://');
+      }
+    }
+    
+    if (validationErrors.length > 0) {
+      return createErrorResponse(400, 'Validation failed', validationErrors);
+    }
+
+    // Generate UUID for new product
+    const productId = uuidv4();
+
+    // Create product in DynamoDB (price in cents)
+    const productItem = {
+      id: productId,
+      title: title.trim(),
+      description: description.trim(),
+      price: Math.round(price * 100), // Convert to cents
+      artist: artist?.trim() || 'Unknown Artist',
+      category: category?.trim() || 'Music',
+      genre: genre?.trim() || 'Rock',
+      year: year || new Date().getFullYear(),
+      imageUrl: imageUrl?.trim() || 'https://example.com/default-album.jpg'
+    };
+
+    const stockItem = {
+      product_id: productId,
+      count: count || 0
+    };
+
+    // Use transaction to ensure both product and stock are created atomically
+    const transactionParams = {
+      TransactItems: [
+        {
+          Put: {
+            TableName: productsTable,
+            Item: productItem,
+            ConditionExpression: 'attribute_not_exists(id)' // Prevent overwriting existing products
+          }
+        },
+        {
+          Put: {
+            TableName: stockTable,
+            Item: stockItem,
+            ConditionExpression: 'attribute_not_exists(product_id)' // Prevent overwriting existing stock
+          }
+        }
+      ]
+    };
+
+    try {
+      await docClient.send(new TransactWriteCommand(transactionParams));
+    } catch (transactionError: any) {
+      if (transactionError.name === 'ConditionalCheckFailedException') {
+        return createErrorResponse(409, 'Conflict', 'A product with this ID already exists');
+      }
+      throw transactionError; // Re-throw other errors to be handled by the outer catch
+    }
+
+    // Return the created product with stock info
+    const createdProduct = {
+      id: productId,
+      name: productItem.title,
+      artist: productItem.artist,
+      description: productItem.description,
+      price, // Return in dollars
+      category: productItem.category,
+      genre: productItem.genre,
+      year: productItem.year,
+      count: stockItem.count,
+      inStock: stockItem.count > 0,
+      imageUrl: productItem.imageUrl
+    };
+
+    logRequest(functionName, event, { 
+      productId,
+      title: productItem.title,
+      price: productItem.price / 100,
+      count: stockItem.count,
+      success: true 
+    });
+    
+    return createSuccessResponse(createdProduct);
+  } catch (error: any) {
+    logError(functionName, error, event);
+    
+    // Handle specific error types
+    if (error.name === 'ValidationException') {
+      return createErrorResponse(400, 'Invalid input', error.message);
+    }
+    
+    if (error.name === 'ProvisionedThroughputExceededException') {
+      return createErrorResponse(503, 'Service temporarily unavailable', 'Database capacity exceeded');
+    }
+    
+    if (error.name === 'AccessDeniedException') {
+      return createErrorResponse(500, 'Server configuration error', 'Database access denied');
+    }
+    
+    // Generic server error
+    return createErrorResponse(500, 'Internal server error', 'An unexpected error occurred while creating the product');
   }
 }

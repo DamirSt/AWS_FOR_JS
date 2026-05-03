@@ -7,6 +7,7 @@ export interface Product {
   category: string;
   genre: string;
   year: number;
+  count: number;
   inStock: boolean;
   imageUrl: string;
 }
