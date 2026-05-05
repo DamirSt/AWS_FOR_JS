@@ -4,6 +4,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as path from 'path';
 import { RemovalPolicy } from 'aws-cdk-lib';
 import * as s3EventSources from 'aws-cdk-lib/aws-lambda-event-sources';
@@ -39,6 +40,10 @@ export class ImportServiceStack extends cdk.Stack {
     importBucket.grantPut(importProductsFileFunction);
     importBucket.grantRead(importProductsFileFunction);
 
+    // Get reference to the catalogItemsQueue from ProductServiceStack
+    const catalogItemsQueue = sqs.Queue.fromQueueArn(this, 'CatalogItemsQueue', 
+      `arn:aws:sqs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:catalogItemsQueue`);
+
     // Create the importFileParser Lambda function
     const importFileParserFunction = new lambda.Function(this, 'importFileParser', {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -48,6 +53,7 @@ export class ImportServiceStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, './')),
       environment: {
         IMPORT_BUCKET_NAME: importBucket.bucketName,
+        CATALOG_ITEMS_QUEUE_URL: catalogItemsQueue.queueUrl,
         NODE_ENV: 'production'
       }
     });
@@ -56,6 +62,9 @@ export class ImportServiceStack extends cdk.Stack {
     importBucket.grantRead(importFileParserFunction);
     importBucket.grantPut(importFileParserFunction); // For copying files to parsed folder
     importBucket.grantDelete(importFileParserFunction); // For deleting files from uploaded folder
+
+    // Grant the importFileParser Lambda function permissions to send messages to SQS
+    catalogItemsQueue.grantSendMessages(importFileParserFunction);
 
     // Add S3 event trigger for the importFileParser function
     // Only trigger for objects created in the uploaded folder

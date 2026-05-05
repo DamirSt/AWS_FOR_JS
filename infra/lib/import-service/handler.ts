@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
 import csv from 'csv-parser';
@@ -68,6 +69,9 @@ function logError(functionName: string, error: any, event: any) {
 
 // S3 client
 const s3Client = new S3Client({});
+
+// SQS client
+const sqsClient = new SQSClient({});
 
 export async function importProductsFile(event: any) {
   const functionName = 'importProductsFile';
@@ -195,16 +199,38 @@ export async function importFileParser(event: any) {
     let recordCount = 0;
     const records: any[] = [];
     
-    // Parse CSV using csv-parser
+    // Parse CSV using csv-parser and send records to SQS
     await new Promise((resolve, reject) => {
       s3Stream
         .pipe(csv())
-        .on('data', (record) => {
+        .on('data', async (record) => {
           recordCount++;
           records.push(record);
           
-          // Log each record for visibility in CloudWatch
-          console.log(`CSV Record ${recordCount}:`, JSON.stringify(record));
+          try {
+            // Send record to SQS queue
+            const sqsMessage = {
+              title: record.title || record.Title || '',
+              description: record.description || record.Description || '',
+              price: parseFloat(record.price || record.Price || '0'),
+              count: parseInt(record.count || record.Count || '0'),
+              artist: record.artist || record.Artist || undefined,
+              category: record.category || record.Category || undefined,
+              genre: record.genre || record.Genre || undefined,
+              year: record.year ? parseInt(record.year) : undefined,
+              imageUrl: record.imageUrl || record.ImageUrl || record.image_url || undefined
+            };
+
+            const sendMessageParams = {
+              QueueUrl: process.env.CATALOG_ITEMS_QUEUE_URL,
+              MessageBody: JSON.stringify(sqsMessage)
+            };
+
+            await sqsClient.send(new SendMessageCommand(sendMessageParams));
+            console.log(`Sent record ${recordCount} to SQS queue`);
+          } catch (sqsError: any) {
+            console.error(`Failed to send record ${recordCount} to SQS:`, sqsError.message);
+          }
         })
         .on('end', () => {
           console.log(`CSV parsing completed for ${objectKey}`);
@@ -225,13 +251,7 @@ export async function importFileParser(event: any) {
         });
     });
 
-    // Log summary of parsed data
-    console.log(`Successfully parsed ${recordCount} records from ${objectKey}`);
-    
-    if (recordCount > 0) {
-      console.log('Sample record structure:', JSON.stringify(records[0], null, 2));
-      console.log('All records:', JSON.stringify(records, null, 2));
-    }
+    console.log(`Successfully processed ${recordCount} records from ${objectKey}`);
 
     // Move file from uploaded/ to parsed/ folder
     const fileName = objectKey.replace('uploaded/', '');
