@@ -2,9 +2,13 @@
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as cdk from 'aws-cdk-lib';
 import * as path from 'path';
 import { Construct } from 'constructs';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 
 export class ProductServiceStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -80,6 +84,62 @@ export class ProductServiceStack extends cdk.Stack {
     stockTable.grantReadWriteData(getProductByIdFunction);
     productsTable.grantReadWriteData(createProductFunction);
     stockTable.grantReadWriteData(createProductFunction);
+
+    // Create SQS queue for catalog items
+    const catalogItemsQueue = new sqs.Queue(this, 'catalogItemsQueue', {
+      queueName: 'catalogItemsQueue',
+      visibilityTimeout: cdk.Duration.seconds(30)
+    });
+
+    // Create catalogBatchProcess Lambda function
+    const catalogBatchProcessFunction = new lambda.Function(this, 'catalogBatchProcess', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 1024,
+      timeout: cdk.Duration.seconds(30),
+      handler: 'handler.catalogBatchProcess',
+      code: lambda.Code.fromAsset(path.join(__dirname, './')),
+      environment: {
+        NODE_ENV: 'production',
+        PRODUCTS_TABLE: productsTable.tableName,
+        STOCK_TABLE: stockTable.tableName
+      }
+    });
+
+    // Grant catalogBatchProcess Lambda permissions to access DynamoDB tables
+    productsTable.grantReadWriteData(catalogBatchProcessFunction);
+    stockTable.grantReadWriteData(catalogBatchProcessFunction);
+
+    // Configure SQS to trigger catalogBatchProcess Lambda with batch size 5
+    catalogBatchProcessFunction.addEventSource(new SqsEventSource(catalogItemsQueue, {
+      batchSize: 5
+    }));
+
+    // Create SNS topic for product creation notifications
+    const createProductTopic = new sns.Topic(this, 'createProductTopic', {
+      topicName: 'createProductTopic',
+      displayName: 'Product Creation Notifications'
+    });
+
+    // Create email subscription for the SNS topic
+    // Note: You'll need to confirm the subscription via email when AWS sends the confirmation
+    const emailSubscription = new subscriptions.EmailSubscription('damirstanojevic@gmail.com');
+    createProductTopic.addSubscription(emailSubscription);
+
+    // Create additional email subscription for expensive products (price > 25)
+    // Note: Filter policies would be configured manually in AWS Console or via CloudFormation
+    const expensiveProductsSubscription = new subscriptions.EmailSubscription('damirstanojevic+expensive@gmail.com');
+    createProductTopic.addSubscription(expensiveProductsSubscription);
+
+    // Create additional email subscription for Rock genre products
+    // Note: Filter policies would be configured manually in AWS Console or via CloudFormation
+    const rockProductsSubscription = new subscriptions.EmailSubscription('damirstanojevic+rock@gmail.com');
+    createProductTopic.addSubscription(rockProductsSubscription);
+
+    // Grant catalogBatchProcess Lambda permission to publish to SNS topic
+    createProductTopic.grantPublish(catalogBatchProcessFunction);
+
+    // Add SNS topic ARN to environment variables for catalogBatchProcess
+    catalogBatchProcessFunction.addEnvironment('CREATE_PRODUCT_TOPIC_ARN', createProductTopic.topicArn);
 
     // Create API Gateway for Product Service
     const productApi = new apigateway.RestApi(this, "product-api", {

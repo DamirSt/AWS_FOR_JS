@@ -1,0 +1,12 @@
+title,description,price,count,artist,category,genre,year,imageUrl
+"Foofighters","Foo Fighters' debut album featuring hits like 'This Is a Call'",18.99,50,"Foo Fighters","Music","Rock",1995,"https://upload.wikimedia.org/wikipedia/en/9/9c/FooFighters1995.jpg"
+"The Colour and the Shape","Second album with classics like 'Everlong' and 'My Hero'",19.99,75,"Foo Fighters","Music","Alternative Rock",1997,"https://upload.wikimedia.org/wikipedia/en/2/2d/TheColourandtheShape.jpg"
+"There Is Nothing Left to Lose","Third album featuring 'Learn to Fly' and 'Breakout'",20.99,60,"Foo Fighters","Music","Rock",1999,"https://upload.wikimedia.org/wikipedia/en/3/3d/ThereIsNothingLefttoLose.jpg"
+"One by One","Fourth album with powerful tracks like 'All My Life'",21.99,45,"Foo Fighters","Music","Alternative Rock",2002,"https://upload.wikimedia.org/wikipedia/en/9/9c/OnebyOne.jpg"
+"In Your Honor","Double album featuring rock and acoustic sides",22.99,40,"Foo Fighters","Music","Rock",2005,"https://upload.wikimedia.org/wikipedia/en/3/3d/InYourHonor.jpg"
+"Echoes, Silence, Patience & Grace","Grammy-winning album with 'The Pretender'",23.99,55,"Foo Fighters","Music","Alternative Rock",2007,"https://upload.wikimedia.org/wikipedia/en/3/3d/EchoesSilencePatienceGrace.jpg"
+"Wasting Light","Seventh album recorded on analog tape",24.99,35,"Foo Fighters","Music","Rock",2011,"https://upload.wikimedia.org/wikipedia/en/3/3d/WastingLight.jpg"
+"Sonic Highways","Album inspired by American cities and their music history",25.99,30,"Foo Fighters","Music","Rock",2014,"https://upload.wikimedia.org/wikipedia/en/3/3d/SonicHighways.jpg"
+"Concrete and Gold","Ninth album with 'Run' and 'The Sky Is a Neighborhood'",26.99,25,"Foo Fighters","Music","Alternative Rock",2017,"https://upload.wikimedia.org/wikipedia/en/3/3d/ConcreteandGold.jpg"
+"Medicine at Midnight","Tenth album featuring 'Shame Shame'",27.99,20,"Foo Fighters","Music","Rock",2021,"https://upload.wikimedia.org/wikipedia/en/3/3d/MicineatMidnight.jpg"
+"But Here We Are","Eleventh studio album, a tribute to Taylor Hawkins",28.99,15,"Foo Fighters","Music","Rock",2023,"https://upload.wikimedia.org/wikipedia/en/3/3d/ButHereWeAre.jpg"

@@ -7,6 +7,7 @@ import {
   TransactWriteCommand
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { v4 as uuidv4 } from 'uuid';
 
 // Error response helper
@@ -403,3 +404,147 @@ export async function createProduct(event: any) {
     return createErrorResponse(500, 'Internal server error', 'An unexpected error occurred while creating the product');
   }
 }
+
+export const catalogBatchProcess = async (event: any) => {
+  const functionName = 'catalogBatchProcess';
+  const productsTable = process.env.PRODUCTS_TABLE!;
+  const stockTable = process.env.STOCK_TABLE!;
+  const snsTopicArn = process.env.CREATE_PRODUCT_TOPIC_ARN!;
+  
+  const client = new DynamoDBClient({});
+  const docClient = DynamoDBDocumentClient.from(client);
+  const snsClient = new SNSClient({});
+  
+  try {
+    console.log(`Processing ${event.Records.length} SQS messages`);
+    
+    const processedProducts = [];
+    const failedProducts = [];
+    
+    // Process each SQS message
+    for (const record of event.Records) {
+      try {
+        const messageBody = JSON.parse(record.body);
+        console.log(`Processing product: ${JSON.stringify(messageBody)}`);
+        
+        // Validate required fields
+        const { title, description, price, count } = messageBody;
+        if (!title || !description || price === undefined || count === undefined) {
+          throw new Error('Missing required fields: title, description, price, count');
+        }
+        
+        // Generate UUID for new product
+        const productId = uuidv4();
+        
+        // Create product in DynamoDB (price in cents)
+        const productItem = {
+          id: productId,
+          title: title.trim(),
+          description: description.trim(),
+          price: Math.round(price * 100), // Convert to cents
+          artist: messageBody.artist?.trim() || 'Unknown Artist',
+          category: messageBody.category?.trim() || 'Music',
+          genre: messageBody.genre?.trim() || 'Rock',
+          year: messageBody.year || new Date().getFullYear(),
+          imageUrl: messageBody.imageUrl?.trim() || 'https://example.com/default-album.jpg'
+        };
+        
+        const stockItem = {
+          product_id: productId,
+          count: count || 0
+        };
+        
+        // Use transaction to ensure both product and stock are created atomically
+        const transactionParams = {
+          TransactItems: [
+            {
+              Put: {
+                TableName: productsTable,
+                Item: productItem,
+                ConditionExpression: 'attribute_not_exists(id)'
+              }
+            },
+            {
+              Put: {
+                TableName: stockTable,
+                Item: stockItem,
+                ConditionExpression: 'attribute_not_exists(product_id)'
+              }
+            }
+          ]
+        };
+        
+        await docClient.send(new TransactWriteCommand(transactionParams));
+        
+        processedProducts.push({
+          id: productId,
+          title: productItem.title,
+          price: price,
+          count: stockItem.count
+        });
+        
+        console.log(`Successfully created product: ${productId}`);
+        
+        // Send SNS notification for product creation
+        try {
+          const snsMessage = {
+            productId,
+            title: productItem.title,
+            artist: productItem.artist,
+            price: price,
+            count: stockItem.count,
+            description: productItem.description,
+            category: productItem.category,
+            genre: productItem.genre,
+            year: productItem.year,
+            imageUrl: productItem.imageUrl,
+            timestamp: new Date().toISOString()
+          };
+
+          const snsParams = {
+            TopicArn: snsTopicArn,
+            Message: JSON.stringify(snsMessage),
+            Subject: `New Product Created: ${productItem.title}`
+          };
+
+          await snsClient.send(new PublishCommand(snsParams));
+          console.log(`Sent SNS notification for product: ${productId}`);
+        } catch (snsError: any) {
+          console.error(`Failed to send SNS notification for product ${productId}:`, snsError.message);
+          // Don't fail the entire process if SNS fails
+        }
+        
+      } catch (productError: any) {
+        console.error(`Failed to process product: ${productError.message}`);
+        failedProducts.push({
+          message: record.body,
+          error: productError.message
+        });
+      }
+    }
+    
+    const result = {
+      processedCount: processedProducts.length,
+      failedCount: failedProducts.length,
+      processedProducts,
+      failedProducts
+    };
+    
+    console.log(`Batch processing complete: ${result.processedCount} successful, ${result.failedCount} failed`);
+    
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result)
+    };
+    
+  } catch (error: any) {
+    console.error(`Batch processing failed: ${error.message}`);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Batch processing failed',
+        message: error.message
+      })
+    };
+  }
+};
