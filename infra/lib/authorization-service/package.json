@@ -1,0 +1,14 @@
+{
+  "name": "authorization-service",
+  "version": "1.0.0",
+  "description": "Authorization service with Basic Auth",
+  "main": "handler.js",
+  "dependencies": {
+    "aws-lambda": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/aws-lambda": "^8.10.0",
+    "typescript": "^5.0.0"
+  }
+}

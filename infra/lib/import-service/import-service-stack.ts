@@ -8,6 +8,7 @@ import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as path from 'path';
 import { RemovalPolicy } from 'aws-cdk-lib';
 import * as s3EventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import { loadEnvVariables } from './env-loader';
 
 export class ImportServiceStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -21,6 +22,19 @@ export class ImportServiceStack extends cdk.Stack {
       autoDeleteObjects: true, // For development - remove for production
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
+    });
+
+    // Load environment variables from .env file
+    const authEnvVars = loadEnvVariables();
+
+    // Create the basicAuthorizer Lambda function
+    const basicAuthorizerFunction = new lambda.Function(this, 'basicAuthorizer', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      memorySize: 128,
+      timeout: cdk.Duration.seconds(5),
+      handler: 'handler.basicAuthorizer',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../authorization-service')),
+      environment: authEnvVars
     });
 
     // Create the importProductsFile Lambda function
@@ -86,43 +100,26 @@ export class ImportServiceStack extends cdk.Stack {
       }
     });
 
+    // Create Lambda authorizer
+    const authorizer = new apigateway.TokenAuthorizer(this, 'BasicAuthorizer', {
+      authorizerName: 'basicAuthorizer',
+      identitySource: apigateway.IdentitySource.header('Authorization'),
+      handler: basicAuthorizerFunction,
+      resultsCacheTtl: cdk.Duration.seconds(0) // Disable caching for testing
+    });
+
     // Create /import resource
     const importResource = api.root.addResource('import');
 
     // Create Lambda integration for importProductsFile
     const importProductsFileIntegration = new apigateway.LambdaIntegration(importProductsFileFunction, {
-      requestTemplates: {
-        "application/json": `{
-          "fileName": "$input.params('fileName')"
-        }`,
-      },
-      integrationResponses: [
-        {
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
-            'method.response.header.Access-Control-Allow-Methods': "'GET,POST,OPTIONS'"
-          }
-        },
-        {
-          statusCode: '400',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'"
-          }
-        },
-        {
-          statusCode: '500',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'"
-          }
-        }
-      ],
-      proxy: false,
+      proxy: true,
     });
 
-    // Add GET method to /import endpoint
+    // Add GET method to /import endpoint with authorizer
     importResource.addMethod('GET', importProductsFileIntegration, {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
       methodResponses: [
         {
           statusCode: '200',
@@ -134,6 +131,18 @@ export class ImportServiceStack extends cdk.Stack {
         },
         {
           statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true
+          }
+        },
+        {
+          statusCode: '401',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true
+          }
+        },
+        {
+          statusCode: '403',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true
           }
