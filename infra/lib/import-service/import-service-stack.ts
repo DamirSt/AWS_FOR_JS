@@ -113,34 +113,7 @@ export class ImportServiceStack extends cdk.Stack {
 
     // Create Lambda integration for importProductsFile
     const importProductsFileIntegration = new apigateway.LambdaIntegration(importProductsFileFunction, {
-      requestTemplates: {
-        "application/json": `{
-          "fileName": "$input.params('fileName')"
-        }`,
-      },
-      integrationResponses: [
-        {
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
-            'method.response.header.Access-Control-Allow-Methods': "'GET,POST,OPTIONS'"
-          }
-        },
-        {
-          statusCode: '400',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'"
-          }
-        },
-        {
-          statusCode: '500',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'"
-          }
-        }
-      ],
-      proxy: false,
+      proxy: true,
     });
 
     // Add GET method to /import endpoint with authorizer

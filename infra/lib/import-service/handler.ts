@@ -16,8 +16,7 @@ function createErrorResponse(statusCode: number, message: string, details?: any)
     },
     body: JSON.stringify({
       error: message,
-      details,
-      timestamp: new Date().toISOString()
+      details
     })
   };
 }
@@ -87,8 +86,8 @@ export async function importProductsFile(event: any) {
       return createErrorResponse(500, 'Server configuration error', 'Import bucket name not configured');
     }
 
-    // Extract fileName from event (passed by API Gateway integration)
-    const fileName = event.fileName;
+    // Extract fileName from query string parameters
+    const fileName = event.queryStringParameters?.name || event.queryStringParameters?.fileName || event.fileName || event.name;
     
     if (!fileName) {
       return createErrorResponse(400, 'Validation failed', 'fileName query parameter is required');
