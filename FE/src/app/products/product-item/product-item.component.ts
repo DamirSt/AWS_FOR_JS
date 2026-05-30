@@ -22,6 +22,7 @@ import {
   MatCardContent,
   MatCardHeader,
   MatCardImage,
+  MatCardSubtitle,
   MatCardTitle,
 } from '@angular/material/card';
 
@@ -35,6 +36,7 @@ import {
     MatCardImage,
     MatCardHeader,
     MatCardTitle,
+    MatCardSubtitle,
     MatCardContent,
     MatCardActions,
     MatIconButton,
@@ -76,7 +78,7 @@ export class ProductItemComponent {
   }
 
   add(): void {
-    this.#cartService.addItem(this.id);
+    this.#cartService.addItem(this.id, this.product());
   }
 
   remove(): void {

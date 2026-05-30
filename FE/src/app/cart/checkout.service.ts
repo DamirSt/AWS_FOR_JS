@@ -3,7 +3,8 @@ import { CartService } from './cart.service';
 import { ProductsService } from '../products/products.service';
 import { Observable } from 'rxjs';
 import { ProductCheckout } from '../products/product.interface';
-import { map } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 
 @Injectable({
   providedIn: 'root',
@@ -13,15 +14,17 @@ export class CheckoutService {
   private readonly productsService = inject(ProductsService);
 
   getProductsForCheckout(): Observable<ProductCheckout[]> {
-    const cart = this.cartService.cart();
-
-    return this.productsService.getProductsForCheckout(Object.keys(cart)).pipe(
-      map((products) =>
-        products.map((product) => ({
-          ...product,
-          orderedCount: cart[product.id],
-          totalPrice: +(cart[product.id] * product.price).toFixed(2),
-        })),
+    return toObservable(this.cartService.cart).pipe(
+      switchMap((cart) =>
+        this.productsService.getProductsForCheckout(Object.keys(cart)).pipe(
+          map((products) =>
+            products.map((product) => ({
+              ...product,
+              orderedCount: cart[product.id],
+              totalPrice: +(cart[product.id] * product.price).toFixed(2),
+            })),
+          ),
+        ),
       ),
     );
   }
