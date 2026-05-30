@@ -16,13 +16,16 @@ export class AuthInterceptor implements HttpInterceptor {
     request: HttpRequest<unknown>,
     next: HttpHandler
   ): Observable<HttpEvent<unknown>> {
-    // Only add auth header to requests to the import service
-    if (request.url.includes('/import')) {
+    // Add auth header to secured backend APIs
+    if (
+      request.url.includes('/import') ||
+      request.url.includes('/api/profile/cart')
+    ) {
       const authHeader = this.authService.getAuthorizationHeader();
-      
+
       if (authHeader) {
         const authRequest = request.clone({
-          headers: request.headers.set('Authorization', authHeader)
+          headers: request.headers.set('Authorization', authHeader),
         });
         return next.handle(authRequest);
       }

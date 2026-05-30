@@ -78,7 +78,7 @@ export class ProductItemComponent {
   }
 
   add(): void {
-    this.#cartService.addItem(this.id);
+    this.#cartService.addItem(this.id, this.product());
   }
 
   remove(): void {
